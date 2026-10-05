@@ -484,6 +484,8 @@
       const errorEl = $('[data-dv-gallery-error]');
       let page = 0;
       let loading = false;
+      let pendingFresh = false;
+      let io = null;
 
       const item = (d) => {
         const fig = make('figure', 'dv-item');
@@ -496,17 +498,23 @@
         return fig;
       };
 
-      const loadPage = async (reset) => {
+      // fresh = skip Vercel's cache. Used right after a visitor's own design is added.
+      const loadPage = async (reset, fresh) => {
         if (!API) {
           status.textContent = designMode ? 'Add the API URL in the theme editor to show the gallery.' : '';
           return;
         }
-        if (loading) return;
+        if (loading) {
+          if (fresh) pendingFresh = true;
+          return;
+        }
         loading = true;
         moreBtn.disabled = true;
         errorEl.hidden = true;
         try {
-          const data = await api('/api/gallery?page=' + (reset ? 1 : page + 1) + '&limit=' + PAGE_SIZE);
+          const data = await api(
+            '/api/gallery?page=' + (reset ? 1 : page + 1) + '&limit=' + PAGE_SIZE + (fresh ? '&t=' + Date.now() : '')
+          );
           if (reset) grid.textContent = '';
           page = data.page;
           data.items.forEach((d) => grid.appendChild(item(d)));
@@ -518,14 +526,21 @@
           status.hidden = true;
           loading = false;
           moreBtn.disabled = false;
+          if (pendingFresh) {
+            pendingFresh = false;
+            loadPage(true, true);
+          }
         }
       };
 
       moreBtn.addEventListener('click', () => loadPage(false));
-      root.dvReloadGallery = () => loadPage(true);
+      root.dvReloadGallery = () => {
+        if (io) io.disconnect();
+        loadPage(true, true);
+      };
 
       if ('IntersectionObserver' in window) {
-        const io = new IntersectionObserver((entries) => {
+        io = new IntersectionObserver((entries) => {
           if (entries.some((en) => en.isIntersecting)) {
             io.disconnect();
             loadPage(true);

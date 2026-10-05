@@ -33,8 +33,8 @@ export default async function handler(req, res) {
       after: { url: imageUrl(d.result.publicId, { width: 900 }), width: d.result.width, height: d.result.height },
     }));
 
-    // Cache at Vercel's edge for a minute so busy pages don't hit the database every time.
-    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=600');
+    // Cache at Vercel's edge for 30 seconds so busy pages don't hit the database every time.
+    res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=30');
     return res.status(200).json({ items, page, hasMore: docs.length > limit });
   } catch (err) {
     console.error('[gallery]', err.message);
