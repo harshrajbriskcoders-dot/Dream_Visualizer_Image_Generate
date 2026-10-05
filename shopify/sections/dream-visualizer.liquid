@@ -1,0 +1,952 @@
+{%- comment -%}
+  Dream Outdoor Living: AI visualizer + community gallery.
+  Needs the dream-visualizer API (Vercel). Paste its URL in the theme editor.
+{%- endcomment -%}
+
+<section
+  id="dv-{{ section.id }}"
+  class="dv"
+  data-api="{{ section.settings.api_base_url | escape }}"
+  data-turnstile="{{ section.settings.turnstile_site_key | escape }}"
+  data-page-size="{{ section.settings.gallery_page_size }}"
+>
+  {%- if section.settings.anchor_id != blank -%}
+    <span id="{{ section.settings.anchor_id | handleize }}" class="dv-anchor"></span>
+  {%- endif -%}
+
+  {%- if section.settings.show_uploader -%}
+    <div class="dv-wrap dv-intro">
+      <div class="dv-copy">
+        {%- if section.settings.number != blank -%}
+          <p class="dv-num">{{ section.settings.number | escape }}</p>
+        {%- endif -%}
+        <h2 class="dv-title">
+          {{ section.settings.heading_start | escape }}
+          <span class="dv-title__accent">{{ section.settings.heading_highlight | escape }}</span>
+          {{ section.settings.heading_end | escape }}
+        </h2>
+        {%- if section.settings.text != blank -%}
+          <div class="dv-copy__text">{{ section.settings.text }}</div>
+        {%- endif -%}
+        <button type="button" class="dv-btn dv-btn--solid" data-dv-pick>Upload your image</button>
+      </div>
+
+      <div class="dv-card" data-dv-card data-current="upload">
+        <input
+          type="file"
+          class="dv-file"
+          accept="image/jpeg,image/png,image/webp"
+          tabindex="-1"
+          aria-hidden="true"
+          data-dv-file
+        >
+
+        {%- comment -%} Step 1: choose a photo {%- endcomment -%}
+        <div class="dv-step" data-step="upload">
+          <button type="button" class="dv-drop" data-dv-pick data-dv-drop data-dv-focus>
+            <svg class="dv-drop__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14"/>
+            </svg>
+            <span class="dv-drop__title">Your space</span>
+            <span class="dv-drop__hint" data-dv-drop-hint>Upload a photo of your current outdoor space to get started.</span>
+          </button>
+          <div class="dv-bar">
+            <span class="dv-bar__name" data-dv-filename>No photo selected</span>
+            <button type="button" class="dv-btn dv-btn--outline dv-btn--small" data-dv-pick>Upload your image</button>
+          </div>
+          <p class="dv-upload-error" role="alert" data-dv-upload-error hidden></p>
+        </div>
+
+        {%- comment -%} Step 2: about your home {%- endcomment -%}
+        <form class="dv-step dv-form" data-step="details" data-dv-form novalidate hidden>
+          <div class="dv-form__top">
+            <img class="dv-form__thumb" data-dv-preview alt="Your photo" width="96" height="72">
+            <div>
+              <h3 class="dv-steptitle" tabindex="-1" data-dv-focus>Tell us about your home</h3>
+              <p class="dv-stepmeta">Step 2 of 3. <button type="button" class="dv-link" data-dv-pick>Change photo</button></p>
+            </div>
+          </div>
+
+          <div class="dv-grid2">
+            <div class="dv-field">
+              <label class="dv-label" for="dv-{{ section.id }}-first">First name</label>
+              <input class="dv-input" id="dv-{{ section.id }}-first" name="firstName" type="text" autocomplete="given-name" maxlength="50" aria-describedby="dv-{{ section.id }}-firstName-error">
+              <p class="dv-field-error" id="dv-{{ section.id }}-firstName-error" data-error-for="firstName" hidden></p>
+            </div>
+            <div class="dv-field">
+              <label class="dv-label" for="dv-{{ section.id }}-last">Last name</label>
+              <input class="dv-input" id="dv-{{ section.id }}-last" name="lastName" type="text" autocomplete="family-name" maxlength="50" aria-describedby="dv-{{ section.id }}-lastName-error">
+              <p class="dv-field-error" id="dv-{{ section.id }}-lastName-error" data-error-for="lastName" hidden></p>
+            </div>
+          </div>
+          <div class="dv-field">
+            <label class="dv-label" for="dv-{{ section.id }}-email">Email</label>
+            <input class="dv-input" id="dv-{{ section.id }}-email" name="email" type="email" inputmode="email" autocomplete="email" maxlength="254" aria-describedby="dv-{{ section.id }}-email-error">
+            <p class="dv-field-error" id="dv-{{ section.id }}-email-error" data-error-for="email" hidden></p>
+          </div>
+
+          <div data-dv-questions>
+            <p class="dv-hint">Loading questions…</p>
+          </div>
+
+          <label class="dv-consent">
+            <input type="checkbox" name="consent">
+            <span>Show my before and after photos in the public gallery, with my first name and last initial.</span>
+          </label>
+
+          <div class="dv-turnstile" data-dv-turnstile></div>
+          <p class="dv-form-error" role="alert" data-dv-form-error hidden></p>
+
+          <button type="submit" class="dv-btn dv-btn--solid dv-btn--block" data-dv-submit>Create my design</button>
+          <p class="dv-legal">
+            By creating a design you agree to our
+            <a href="{{ section.settings.privacy_url | default: '/policies/privacy-policy' }}" target="_blank" rel="noopener">Privacy Policy</a>.
+          </p>
+        </form>
+
+        {%- comment -%} Step 3a: creating {%- endcomment -%}
+        <div class="dv-step dv-creating" data-step="creating" hidden>
+          <div class="dv-scan"><img data-dv-creating-img alt="" width="1200" height="900"></div>
+          <p class="dv-creating__text" aria-live="polite">
+            <strong class="dv-creating__title" tabindex="-1" data-dv-focus>Creating your design</strong>
+            <span data-dv-creating-text>This usually takes 15 to 30 seconds. Keep this page open.</span>
+          </p>
+        </div>
+
+        {%- comment -%} Step 3b: result {%- endcomment -%}
+        <div class="dv-step dv-result" data-step="result" hidden>
+          <div data-dv-result-media></div>
+          <h3 class="dv-steptitle dv-result__title" tabindex="-1" data-dv-focus>Your design is ready</h3>
+          <p class="dv-result__note" data-dv-result-note></p>
+          <div class="dv-result__actions">
+            <a class="dv-btn dv-btn--outline" href="#" data-dv-download>Download design</a>
+            <button type="button" class="dv-btn dv-btn--solid" data-dv-restart>Try another photo</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  {%- endif -%}
+
+  {%- if section.settings.show_gallery -%}
+    <div class="dv-wrap dv-gallery" data-dv-gallery>
+      <div class="dv-gallery__head">
+        <h2 class="dv-gallery__title">{{ section.settings.gallery_heading | escape }}</h2>
+        {%- if section.settings.gallery_text != blank -%}
+          <p class="dv-gallery__text">{{ section.settings.gallery_text | escape }}</p>
+        {%- endif -%}
+      </div>
+      <p class="dv-gallery__status" data-dv-gallery-status>Loading designs…</p>
+      <div class="dv-grid" data-dv-grid></div>
+      <p class="dv-empty" data-dv-empty hidden>No designs yet. Upload a photo of your space to be the first.</p>
+      <p class="dv-gallery__status" role="alert" data-dv-gallery-error hidden>The gallery couldn't load. Refresh the page to try again.</p>
+      <div class="dv-gallery__foot">
+        <button type="button" class="dv-btn dv-btn--outline" data-dv-more hidden>Show more designs</button>
+      </div>
+    </div>
+  {%- endif -%}
+</section>
+
+<style>
+  #dv-{{ section.id }} {
+    --dv-accent: {{ section.settings.accent }};
+    --dv-ink: {{ section.settings.ink }};
+    --dv-stone: {{ section.settings.card }};
+    --dv-pt: {{ section.settings.padding_top }}px;
+    --dv-pb: {{ section.settings.padding_bottom }}px;
+  }
+  .dv {
+    --dv-mist: #f8f8f7;
+    --dv-line: #d9d9d3;
+    --dv-muted: #666664;
+    --dv-error: #b42318;
+    --dv-accent-soft: color-mix(in srgb, var(--dv-accent) 10%, #fff);
+    --dv-accent-dark: color-mix(in srgb, var(--dv-accent) 82%, #000);
+    position: relative;
+    padding: calc(var(--dv-pt) * 0.6) 0 calc(var(--dv-pb) * 0.6);
+    color: var(--dv-ink);
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  @media (min-width: 750px) {
+    .dv { padding: var(--dv-pt) 0 var(--dv-pb); }
+  }
+  .dv *, .dv *::before, .dv *::after { box-sizing: border-box; }
+  .dv [hidden] { display: none !important; }
+  .dv-anchor { position: absolute; top: -80px; }
+  .dv-wrap { max-width: 1130px; margin: 0 auto; padding: 0 20px; }
+
+  /* Intro */
+  .dv-intro { display: grid; gap: 40px; align-items: center; }
+  @media (min-width: 990px) {
+    .dv-intro { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 72px; }
+  }
+  .dv .dv-num {
+    display: flex; align-items: center; gap: 14px; margin: 0 0 10px;
+    font-size: 14px; font-style: italic; color: #9a9a98;
+  }
+  .dv .dv-num::after { content: ""; flex: 0 1 250px; height: 1px; background: var(--dv-line); }
+  .dv .dv-title {
+    margin: 0 0 24px; color: var(--dv-ink);
+    font-size: clamp(34px, 4.4vw, 52px); font-weight: 700; line-height: 1.08; letter-spacing: -0.015em;
+  }
+  .dv-title__accent { color: var(--dv-accent); }
+  .dv-copy__text { max-width: 44ch; margin: 0 0 28px; }
+  .dv-copy__text p { margin: 0 0 12px; }
+
+  /* Buttons */
+  .dv .dv-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 46px; padding: 12px 22px; margin: 0;
+    font: inherit; font-size: 15px; font-weight: 700; line-height: 1.2; text-decoration: none;
+    border: 1px solid var(--dv-accent); border-radius: 0; cursor: pointer;
+    transition: background-color .15s, border-color .15s, color .15s;
+  }
+  .dv .dv-btn--solid { background: var(--dv-accent); color: #fff; }
+  .dv .dv-btn--solid:hover { background: var(--dv-accent-dark); border-color: var(--dv-accent-dark); }
+  .dv .dv-btn--outline { background: #fff; color: var(--dv-accent); }
+  .dv .dv-btn--outline:hover { background: var(--dv-accent-soft); }
+  .dv .dv-btn--small { min-height: 40px; padding: 8px 18px; font-size: 14px; }
+  .dv .dv-btn--block { width: 100%; }
+  .dv .dv-btn:disabled { opacity: .5; cursor: not-allowed; }
+  .dv :focus-visible { outline: 2px solid var(--dv-accent); outline-offset: 2px; }
+  .dv .dv-link {
+    padding: 0; border: 0; background: none; cursor: pointer;
+    font: inherit; color: var(--dv-accent); text-decoration: underline;
+  }
+
+  /* Card + upload step */
+  .dv-card { min-width: 0; background: var(--dv-mist); }
+  .dv .dv-file { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
+  .dv .dv-drop {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; min-height: 260px; padding: 40px 24px; margin: 0;
+    background: var(--dv-stone); border: 2px dashed transparent; border-radius: 0;
+    font: inherit; color: var(--dv-ink); text-align: center; cursor: pointer;
+  }
+  .dv .dv-drop:hover, .dv .dv-drop.is-over { border-color: var(--dv-accent); }
+  .dv .dv-drop.is-over { background: var(--dv-accent-soft); }
+  .dv .dv-drop:disabled { cursor: default; border-color: transparent; }
+  @media (min-width: 750px) { .dv .dv-drop { min-height: 340px; } }
+  @media (min-width: 990px) { .dv .dv-drop { min-height: 420px; } }
+  .dv-drop__icon { width: 36px; height: 36px; color: var(--dv-accent); }
+  .dv-drop__title { font-size: 18px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--dv-accent); }
+  .dv-drop__hint { max-width: 40ch; font-size: 14px; color: #555; }
+  .dv-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 20px; }
+  @media (min-width: 750px) { .dv-bar { padding: 26px 36px; } }
+  .dv-bar__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: #555; }
+  .dv .dv-upload-error { margin: 0; padding: 0 20px 20px; font-size: 14px; color: var(--dv-error); }
+  @media (min-width: 750px) { .dv .dv-upload-error { padding: 0 36px 24px; } }
+
+  /* Details step */
+  .dv .dv-form { margin: 0; padding: 24px 20px 28px; }
+  @media (min-width: 750px) { .dv .dv-form { padding: 28px 32px 32px; } }
+  .dv-form__top { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+  .dv .dv-form__thumb { flex: none; width: 96px; height: 72px; object-fit: cover; background: var(--dv-stone); }
+  .dv .dv-steptitle { margin: 0; font-size: 20px; font-weight: 700; line-height: 1.3; color: var(--dv-ink); }
+  .dv .dv-steptitle:focus { outline: none; }
+  .dv .dv-stepmeta { margin: 2px 0 0; font-size: 14px; color: var(--dv-muted); }
+  .dv-grid2 { display: grid; gap: 0 16px; }
+  @media (min-width: 600px) { .dv-grid2 { grid-template-columns: 1fr 1fr; } }
+  .dv .dv-field { min-width: 0; margin: 0 0 20px; padding: 0; border: 0; }
+  .dv .dv-label { display: block; margin: 0 0 6px; padding: 0; font-size: 15px; font-weight: 700; color: var(--dv-ink); }
+  .dv .dv-hint { margin: -2px 0 10px; font-size: 13px; color: var(--dv-muted); }
+  .dv .dv-input {
+    display: block; width: 100%; height: 48px; padding: 0 14px; margin: 0;
+    font: inherit; font-size: 16px; color: var(--dv-ink);
+    background: #fff; border: 1px solid var(--dv-line); border-radius: 0; box-shadow: none; appearance: none;
+  }
+  .dv .dv-input:focus { border-color: var(--dv-accent); outline: 2px solid var(--dv-accent); outline-offset: -1px; }
+  .dv .dv-input[aria-invalid="true"] { border-color: var(--dv-error); }
+  .dv-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .dv .dv-chip { position: relative; display: inline-flex; margin: 0; cursor: pointer; }
+  .dv .dv-chip input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  .dv .dv-chip__text {
+    display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 8px 14px;
+    font-size: 14px; line-height: 1.3; color: var(--dv-ink);
+    background: #fff; border: 1px solid var(--dv-line);
+    transition: border-color .12s, background-color .12s;
+  }
+  .dv .dv-chip:hover .dv-chip__text { border-color: var(--dv-accent); }
+  .dv .dv-chip input:checked + .dv-chip__text {
+    background: var(--dv-accent-soft); border-color: var(--dv-accent); box-shadow: inset 0 0 0 1px var(--dv-accent);
+  }
+  .dv .dv-chip input:checked + .dv-chip__text::before {
+    content: ""; width: 10px; height: 6px; margin-top: -3px;
+    border-left: 2px solid var(--dv-accent); border-bottom: 2px solid var(--dv-accent); transform: rotate(-45deg);
+  }
+  .dv .dv-chip input:focus-visible + .dv-chip__text { outline: 2px solid var(--dv-accent); outline-offset: 2px; }
+  .dv .dv-chip input:disabled { cursor: not-allowed; }
+  .dv .dv-chip input:disabled + .dv-chip__text { opacity: .45; }
+  .dv .dv-chip input[aria-invalid="true"] + .dv-chip__text { border-color: var(--dv-error); }
+  .dv .dv-field-error { margin: 6px 0 0; font-size: 13px; color: var(--dv-error); }
+  .dv .dv-consent { display: flex; align-items: flex-start; gap: 10px; margin: 4px 0 20px; font-size: 14px; cursor: pointer; }
+  .dv .dv-consent input { flex: none; width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--dv-accent); }
+  .dv-turnstile:not(:empty) { margin: 0 0 16px; }
+  .dv .dv-form-error {
+    margin: 0 0 16px; padding: 10px 14px; font-size: 14px;
+    color: var(--dv-error); background: #fef3f2; border-left: 3px solid var(--dv-error);
+  }
+  .dv .dv-legal { margin: 12px 0 0; font-size: 12px; color: var(--dv-muted); text-align: center; }
+  .dv .dv-legal a { color: inherit; }
+
+  /* Creating step */
+  .dv-scan { position: relative; overflow: hidden; background: var(--dv-stone); }
+  .dv .dv-scan img { display: block; width: 100%; height: auto; max-height: 520px; object-fit: cover; filter: saturate(.6) brightness(.92); }
+  .dv-scan::after {
+    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 35%;
+    background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--dv-accent) 38%, transparent), transparent);
+    animation: dv-sweep 2.4s ease-in-out infinite;
+  }
+  @keyframes dv-sweep { from { transform: translateY(-100%); } to { transform: translateY(300%); } }
+  .dv .dv-creating__text { margin: 0; padding: 22px 20px 26px; font-size: 15px; }
+  @media (min-width: 750px) { .dv .dv-creating__text { padding: 22px 32px 26px; } }
+  .dv-creating__title { display: block; margin-bottom: 2px; font-size: 18px; }
+  .dv-creating__title:focus { outline: none; }
+
+  /* Result step */
+  .dv .dv-result__title { padding: 22px 20px 0; }
+  .dv .dv-result__note { margin: 4px 0 0; padding: 0 20px; font-size: 15px; }
+  .dv-result__actions { display: flex; flex-wrap: wrap; gap: 12px; padding: 20px 20px 28px; }
+  @media (min-width: 750px) {
+    .dv .dv-result__title { padding: 24px 32px 0; }
+    .dv .dv-result__note { padding: 0 32px; }
+    .dv-result__actions { padding: 20px 32px 30px; }
+  }
+
+  /* Before / after slider */
+  .dv-compare {
+    --pos: 50%;
+    position: relative; overflow: hidden; aspect-ratio: 4 / 3;
+    background: var(--dv-stone); cursor: ew-resize; touch-action: pan-y;
+    user-select: none; -webkit-user-select: none;
+  }
+  .dv .dv-compare__img {
+    position: absolute; inset: 0; width: 100%; height: 100%; max-width: none;
+    object-fit: cover; pointer-events: none; -webkit-user-drag: none;
+  }
+  .dv-compare__before { position: absolute; inset: 0; clip-path: inset(0 calc(100% - var(--pos)) 0 0); }
+  .dv .dv-compare__range {
+    position: absolute; left: 0; bottom: 0; width: 100%; height: 1px; margin: 0;
+    opacity: 0; pointer-events: none;
+  }
+  .dv-compare__handle {
+    position: absolute; top: 0; bottom: 0; left: var(--pos); width: 2px; margin-left: -1px;
+    background: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .12); pointer-events: none;
+  }
+  .dv-compare__handle::after {
+    content: ""; position: absolute; top: 50%; left: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px;
+    border-radius: 50%; box-shadow: 0 1px 4px rgba(0, 0, 0, .25);
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 7l-5 5 5 5M15 7l5 5-5 5'/%3E%3C/svg%3E") center / 22px no-repeat;
+  }
+  .dv .dv-compare__range:focus-visible + .dv-compare__handle::after { outline: 2px solid var(--dv-accent); outline-offset: 2px; }
+  .dv-compare__tag {
+    position: absolute; bottom: 10px; padding: 3px 8px;
+    font-size: 12px; font-weight: 600; line-height: 1.4; color: #fff; background: rgba(0, 0, 0, .55);
+    pointer-events: none;
+  }
+  .dv-compare__tag--before { left: 10px; }
+  .dv-compare__tag--after { right: 10px; }
+
+  /* Gallery */
+  .dv-intro + .dv-gallery { margin-top: 72px; }
+  @media (min-width: 990px) { .dv-intro + .dv-gallery { margin-top: 112px; } }
+  .dv-gallery__head { max-width: 640px; margin: 0 0 32px; }
+  .dv .dv-gallery__title {
+    margin: 0 0 8px; color: var(--dv-ink);
+    font-size: clamp(26px, 3vw, 34px); font-weight: 700; line-height: 1.15; letter-spacing: -0.01em;
+  }
+  .dv .dv-gallery__text { margin: 0; color: var(--dv-muted); }
+  .dv .dv-gallery__status { margin: 0; color: var(--dv-muted); }
+  .dv-grid { display: grid; gap: 36px 24px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+  .dv .dv-item { margin: 0; }
+  .dv-item__cap { padding-top: 12px; font-size: 14px; line-height: 1.45; }
+  .dv-item__name { display: block; font-size: 15px; font-weight: 700; }
+  .dv-item__meta { display: block; color: var(--dv-muted); }
+  .dv .dv-empty { margin: 0; padding: 48px 24px; text-align: center; color: var(--dv-muted); background: var(--dv-mist); }
+  .dv-gallery__foot { margin-top: 36px; text-align: center; }
+  .dv-gallery__foot:has([data-dv-more][hidden]) { display: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dv-scan::after { animation: none; top: 0; bottom: 0; height: auto; background: color-mix(in srgb, var(--dv-accent) 14%, transparent); }
+    .dv .dv-btn, .dv .dv-chip__text { transition: none; }
+  }
+</style>
+
+<script>
+  (function () {
+    var root = document.getElementById('dv-{{ section.id }}');
+    if (!root || root.dataset.dvReady === '1') return;
+    root.dataset.dvReady = '1';
+
+    const API = (root.dataset.api || '').trim().replace(/\/+$/, '');
+    const SITE_KEY = (root.dataset.turnstile || '').trim();
+    const PAGE_SIZE = parseInt(root.dataset.pageSize, 10) || 9;
+    const MAX_SIDE = 1600;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const designMode = !!(window.Shopify && window.Shopify.designMode);
+
+    const $ = (s) => root.querySelector(s);
+    const $$ = (s) => Array.from(root.querySelectorAll(s));
+    const make = (tag, cls, text) => {
+      const n = document.createElement(tag);
+      if (cls) n.className = cls;
+      if (text != null) n.textContent = text;
+      return n;
+    };
+
+    function timeoutSignal(ms) {
+      if (window.AbortSignal && typeof AbortSignal.timeout === 'function') return AbortSignal.timeout(ms);
+      const c = new AbortController();
+      setTimeout(() => c.abort(), ms);
+      return c.signal;
+    }
+
+    async function api(path, opts) {
+      const res = await fetch(API + path, opts);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const err = new Error(data.error || 'Something went wrong. Try again in a few minutes.');
+        err.fields = data.fields;
+        err.status = res.status;
+        throw err;
+      }
+      return data;
+    }
+
+    /* ---------- Before / after slider ---------- */
+    function compare(before, after, subject) {
+      const box = make('div', 'dv-compare');
+      const w = after.width || before.width;
+      const h = after.height || before.height;
+      if (w && h) box.style.aspectRatio = w + ' / ' + h;
+
+      const imgAfter = make('img', 'dv-compare__img');
+      imgAfter.src = after.url;
+      imgAfter.alt = 'Design for ' + subject;
+      const beforeWrap = make('div', 'dv-compare__before');
+      const imgBefore = make('img', 'dv-compare__img');
+      imgBefore.src = before.url;
+      imgBefore.alt = 'Original photo of ' + subject;
+      [imgAfter, imgBefore].forEach((img) => {
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.draggable = false;
+      });
+      beforeWrap.appendChild(imgBefore);
+
+      const range = make('input', 'dv-compare__range');
+      range.type = 'range';
+      range.min = '0';
+      range.max = '100';
+      range.value = '50';
+      range.setAttribute('aria-label', 'Compare the original photo with the design');
+      const handle = make('span', 'dv-compare__handle');
+      handle.setAttribute('aria-hidden', 'true');
+      const tagBefore = make('span', 'dv-compare__tag dv-compare__tag--before', 'Before');
+      const tagAfter = make('span', 'dv-compare__tag dv-compare__tag--after', 'After');
+      tagBefore.setAttribute('aria-hidden', 'true');
+      tagAfter.setAttribute('aria-hidden', 'true');
+
+      const setPos = (v) => {
+        const p = Math.max(0, Math.min(100, v));
+        box.style.setProperty('--pos', p + '%');
+        range.value = String(Math.round(p));
+      };
+      const fromX = (x) => {
+        const r = box.getBoundingClientRect();
+        setPos(((x - r.left) / r.width) * 100);
+      };
+      range.addEventListener('input', () => setPos(Number(range.value)));
+
+      let dragging = false;
+      box.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        dragging = true;
+        if (e.pointerType !== 'touch') fromX(e.clientX); // touch waits for a sideways move, so scrolling still works
+        if (box.setPointerCapture) box.setPointerCapture(e.pointerId);
+      });
+      box.addEventListener('pointermove', (e) => { if (dragging) fromX(e.clientX); });
+      ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((t) =>
+        box.addEventListener(t, () => { dragging = false; })
+      );
+
+      box.append(imgAfter, beforeWrap, range, handle, tagBefore, tagAfter);
+      return box;
+    }
+
+    /* ---------- Gallery ---------- */
+    const gallery = $('[data-dv-gallery]');
+    if (gallery) {
+      const grid = $('[data-dv-grid]');
+      const moreBtn = $('[data-dv-more]');
+      const empty = $('[data-dv-empty]');
+      const status = $('[data-dv-gallery-status]');
+      const errorEl = $('[data-dv-gallery-error]');
+      let page = 0;
+      let loading = false;
+
+      const item = (d) => {
+        const fig = make('figure', 'dv-item');
+        fig.appendChild(compare(d.before, d.after, d.name + "'s outdoor space"));
+        const cap = make('figcaption', 'dv-item__cap');
+        cap.appendChild(make('span', 'dv-item__name', d.name));
+        if (d.styles && d.styles.length) cap.appendChild(make('span', 'dv-item__meta', d.styles.join(' and ') + ' home'));
+        if (d.features && d.features.length) cap.appendChild(make('span', 'dv-item__meta', d.features.join(', ')));
+        fig.appendChild(cap);
+        return fig;
+      };
+
+      const loadPage = async (reset) => {
+        if (!API) {
+          status.textContent = designMode ? 'Add the API URL in the theme editor to show the gallery.' : '';
+          return;
+        }
+        if (loading) return;
+        loading = true;
+        moreBtn.disabled = true;
+        errorEl.hidden = true;
+        try {
+          const data = await api('/api/gallery?page=' + (reset ? 1 : page + 1) + '&limit=' + PAGE_SIZE);
+          if (reset) grid.textContent = '';
+          page = data.page;
+          data.items.forEach((d) => grid.appendChild(item(d)));
+          empty.hidden = grid.children.length > 0;
+          moreBtn.hidden = !data.hasMore;
+        } catch (e) {
+          errorEl.hidden = false;
+        } finally {
+          status.hidden = true;
+          loading = false;
+          moreBtn.disabled = false;
+        }
+      };
+
+      moreBtn.addEventListener('click', () => loadPage(false));
+      root.dvReloadGallery = () => loadPage(true);
+
+      if ('IntersectionObserver' in window) {
+        const io = new IntersectionObserver((entries) => {
+          if (entries.some((en) => en.isIntersecting)) {
+            io.disconnect();
+            loadPage(true);
+          }
+        }, { rootMargin: '400px' });
+        io.observe(gallery);
+      } else {
+        loadPage(true);
+      }
+    }
+
+    /* ---------- Uploader ---------- */
+    const card = $('[data-dv-card]');
+    if (!card) return;
+
+    const fileInput = $('[data-dv-file]');
+    const form = $('[data-dv-form]');
+    const drop = $('[data-dv-drop]');
+    const dropHint = $('[data-dv-drop-hint]');
+    const filenameEl = $('[data-dv-filename]');
+    const uploadErrorEl = $('[data-dv-upload-error]');
+    const formErrorEl = $('[data-dv-form-error]');
+    const questionsEl = $('[data-dv-questions]');
+    const tsBox = $('[data-dv-turnstile]');
+    const previewImg = $('[data-dv-preview]');
+    const creatingImg = $('[data-dv-creating-img]');
+    const creatingText = $('[data-dv-creating-text]');
+    const resultMedia = $('[data-dv-result-media]');
+    const resultNote = $('[data-dv-result-note]');
+    const downloadLink = $('[data-dv-download]');
+    const pickButtons = $$('[data-dv-pick]');
+
+    const state = { image: null, questions: null, questionsFailed: false, widgetId: null, busy: false, timer: null };
+
+    if (!API) {
+      pickButtons.forEach((b) => { b.disabled = true; });
+      dropHint.textContent = designMode
+        ? 'Add the API URL in the theme editor to turn on uploads.'
+        : 'Uploads are not available right now.';
+      return;
+    }
+
+    function showStep(name, moveFocus) {
+      $$('[data-step]').forEach((s) => { s.hidden = s.dataset.step !== name; });
+      card.dataset.current = name;
+      if (moveFocus) {
+        const target = card.querySelector('[data-step="' + name + '"] [data-dv-focus]');
+        if (target) target.focus({ preventScroll: true });
+      }
+    }
+    const uploadError = (msg) => { uploadErrorEl.textContent = msg || ''; uploadErrorEl.hidden = !msg; };
+    const formError = (msg) => { formErrorEl.textContent = msg || ''; formErrorEl.hidden = !msg; };
+
+    /* Questions come from the API so they're edited in one place */
+    function renderQuestions(qs) {
+      questionsEl.textContent = '';
+      Object.keys(qs).forEach((key) => {
+        const q = qs[key];
+        const fs = make('fieldset', 'dv-field');
+        fs.appendChild(make('legend', 'dv-label', q.label));
+        if (q.hint) {
+          const hint = make('p', 'dv-hint', q.hint);
+          hint.id = root.id + '-' + key + '-hint';
+          fs.setAttribute('aria-describedby', hint.id);
+          fs.appendChild(hint);
+        }
+        const list = make('div', 'dv-chips');
+        q.options.forEach((o) => {
+          const lab = make('label', 'dv-chip');
+          const input = document.createElement('input');
+          input.type = q.multi ? 'checkbox' : 'radio';
+          input.name = key;
+          input.value = o.id;
+          lab.append(input, make('span', 'dv-chip__text', o.label));
+          list.appendChild(lab);
+        });
+        fs.appendChild(list);
+        const err = make('p', 'dv-field-error');
+        err.id = root.id + '-' + key + '-error';
+        err.dataset.errorFor = key;
+        err.hidden = true;
+        fs.appendChild(err);
+        if (q.multi && q.max < q.options.length) {
+          list.addEventListener('change', () => {
+            const boxes = Array.from(list.querySelectorAll('input'));
+            const count = boxes.filter((b) => b.checked).length;
+            boxes.forEach((b) => { b.disabled = !b.checked && count >= q.max; });
+          });
+        }
+        questionsEl.appendChild(fs);
+      });
+    }
+
+    api('/api/options')
+      .then((d) => {
+        state.questions = d.questions;
+        renderQuestions(d.questions);
+      })
+      .catch(() => {
+        state.questionsFailed = true;
+        questionsEl.textContent = '';
+        questionsEl.appendChild(make('p', 'dv-field-error', "The questions couldn't load. Refresh the page to try again."));
+      });
+
+    /* Turnstile (spam protection), loaded only when the form opens */
+    let tsLoading = null;
+    function loadTurnstile() {
+      if (window.turnstile) return Promise.resolve(window.turnstile);
+      if (tsLoading) return tsLoading;
+      tsLoading = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+        s.onload = () => resolve(window.turnstile);
+        s.onerror = () => { tsLoading = null; reject(new Error('turnstile')); };
+        document.head.appendChild(s);
+      });
+      return tsLoading;
+    }
+    async function ensureTurnstile() {
+      if (!SITE_KEY || state.widgetId != null) return;
+      try {
+        const ts = await loadTurnstile();
+        state.widgetId = ts.render(tsBox, { sitekey: SITE_KEY, theme: 'light', size: 'flexible', action: 'visualize' });
+      } catch (e) {
+        formError("The security check couldn't load. Turn off ad blockers for this site, then refresh.");
+      }
+    }
+    function resetTurnstile() {
+      if (SITE_KEY && window.turnstile && state.widgetId != null) window.turnstile.reset(state.widgetId);
+    }
+
+    /* Photo handling: shrink in the browser so uploads are fast and small */
+    function loadImage(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("This photo couldn't be opened. Try a JPG or PNG."));
+        img.src = src;
+      });
+    }
+    async function prepareImage(file) {
+      if (file.type && !/^image\/(jpeg|png|webp)$/i.test(file.type)) throw new Error('Use a JPG, PNG or WebP photo.');
+      if (file.size > 25 * 1024 * 1024) throw new Error('That photo is over 25 MB. Choose a smaller one.');
+      const url = URL.createObjectURL(file);
+      try {
+        const img = await loadImage(url);
+        const w = img.naturalWidth;
+        const h = img.naturalHeight;
+        if (Math.max(w, h) < 500) throw new Error('That photo is too small. Use one at least 500 pixels wide.');
+        const scale = Math.min(1, MAX_SIDE / Math.max(w, h));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(w * scale);
+        canvas.height = Math.round(h * scale);
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL('image/jpeg', 0.85);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    async function handleFile(file) {
+      if (!file || state.busy) return;
+      uploadError('');
+      formError('');
+      filenameEl.textContent = file.name;
+      try {
+        state.image = await prepareImage(file);
+        previewImg.src = state.image;
+        creatingImg.src = state.image;
+        showStep('details', true);
+        ensureTurnstile();
+        if (window.matchMedia('(max-width: 989px)').matches) {
+          card.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+        }
+      } catch (err) {
+        state.image = null;
+        filenameEl.textContent = 'No photo selected';
+        showStep('upload');
+        uploadError(err.message);
+      } finally {
+        fileInput.value = '';
+      }
+    }
+
+    pickButtons.forEach((b) => b.addEventListener('click', () => { if (!state.busy) fileInput.click(); }));
+    fileInput.addEventListener('change', () => handleFile(fileInput.files && fileInput.files[0]));
+    ['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('is-over'); }));
+    ['dragleave', 'drop'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove('is-over'); }));
+    drop.addEventListener('drop', (e) => handleFile(e.dataTransfer && e.dataTransfer.files[0]));
+
+    /* Validation */
+    function clearErrors() {
+      $$('[data-error-for]').forEach((e) => { e.hidden = true; e.textContent = ''; });
+      $$('[aria-invalid]').forEach((e) => e.removeAttribute('aria-invalid'));
+      formError('');
+    }
+    function setErrors(fields) {
+      let first = null;
+      Object.keys(fields).forEach((key) => {
+        const msg = root.querySelector('[data-error-for="' + key + '"]');
+        if (!msg) return;
+        msg.textContent = fields[key];
+        msg.hidden = false;
+        form.querySelectorAll('[name="' + key + '"]').forEach((input) => {
+          input.setAttribute('aria-invalid', 'true');
+          if (!first) first = input;
+        });
+      });
+      if (fields.image) {
+        showStep('upload', true);
+        uploadError(fields.image);
+      } else if (first) {
+        first.focus();
+      }
+    }
+    ['input', 'change'].forEach((t) => form.addEventListener(t, (e) => {
+      const name = e.target && e.target.name;
+      if (!name) return;
+      const msg = root.querySelector('[data-error-for="' + name + '"]');
+      if (msg && !msg.hidden) {
+        msg.hidden = true;
+        form.querySelectorAll('[name="' + name + '"]').forEach((i) => i.removeAttribute('aria-invalid'));
+        if (!root.querySelector('[data-error-for]:not([hidden])')) formError('');
+      }
+    }));
+
+    function collect() {
+      const fd = new FormData(form);
+      const p = {
+        firstName: String(fd.get('firstName') || '').trim(),
+        lastName: String(fd.get('lastName') || '').trim(),
+        email: String(fd.get('email') || '').trim(),
+        consent: fd.get('consent') === 'on',
+        image: state.image,
+      };
+      Object.keys(state.questions || {}).forEach((k) => { p[k] = fd.getAll(k); });
+      return p;
+    }
+    function check(p) {
+      const e = {};
+      if (!p.firstName) e.firstName = 'Enter your first name.';
+      if (!p.lastName) e.lastName = 'Enter your last name.';
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(p.email)) e.email = 'Enter a valid email address.';
+      Object.keys(state.questions || {}).forEach((k) => {
+        if (!p[k].length) e[k] = state.questions[k].multi ? 'Pick at least one.' : 'Pick one.';
+      });
+      return e;
+    }
+
+    /* Waiting message */
+    function startWaiting() {
+      creatingText.textContent = 'This usually takes 15 to 30 seconds. Keep this page open.';
+      clearTimeout(state.timer);
+      state.timer = setTimeout(() => {
+        creatingText.textContent = 'Still working. Most designs are ready in under a minute.';
+      }, 25000);
+    }
+
+    /* Submit */
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      if (state.busy) return;
+      clearErrors();
+
+      if (!state.image) {
+        showStep('upload', true);
+        uploadError('Add a photo of your outdoor space.');
+        return;
+      }
+      if (!state.questions) {
+        formError(state.questionsFailed
+          ? "The questions couldn't load. Refresh the page to try again."
+          : 'The questions are still loading. Try again in a moment.');
+        return;
+      }
+      const payload = collect();
+      const errors = check(payload);
+      if (Object.keys(errors).length) {
+        setErrors(errors);
+        formError('Fix the highlighted fields, then select Create my design.');
+        return;
+      }
+      if (SITE_KEY) {
+        payload.turnstileToken = window.turnstile && state.widgetId != null ? window.turnstile.getResponse(state.widgetId) : '';
+        if (!payload.turnstileToken) {
+          formError('Complete the security check, then select Create my design.');
+          return;
+        }
+      }
+
+      state.busy = true;
+      showStep('creating', true);
+      startWaiting();
+      try {
+        const data = await api('/api/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: timeoutSignal(90000),
+        });
+        showResult(data);
+      } catch (err) {
+        showStep('details', true);
+        let msg = err.message;
+        if (err.name === 'AbortError' || err.name === 'TimeoutError') {
+          msg = 'Creating the design took too long. Select Create my design to try again.';
+        } else if (err instanceof TypeError) {
+          msg = "The design service couldn't be reached. Check your connection and try again.";
+        }
+        if (err.fields) setErrors(err.fields);
+        if (!(err.fields && err.fields.image)) formError(msg);
+      } finally {
+        state.busy = false;
+        clearTimeout(state.timer);
+        resetTurnstile();
+      }
+    });
+
+    function showResult(data) {
+      resultMedia.textContent = '';
+      resultMedia.appendChild(compare(data.before, data.after, 'your outdoor space'));
+      const notes = {
+        pending: "It's saved and will appear in the gallery once it's approved.",
+        approved: "It's been added to the gallery below.",
+        private: "It's saved. You chose not to share it, so it won't appear in the gallery.",
+      };
+      resultNote.textContent = notes[data.status] || notes.pending;
+      downloadLink.href = data.download;
+      showStep('result', true);
+      if (data.status === 'approved' && root.dvReloadGallery) root.dvReloadGallery();
+    }
+
+    $('[data-dv-restart]').addEventListener('click', () => {
+      state.image = null;
+      filenameEl.textContent = 'No photo selected';
+      previewImg.removeAttribute('src');
+      showStep('upload', true);
+      fileInput.click();
+    });
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Dream visualizer",
+  "tag": "div",
+  "class": "section-dream-visualizer",
+  "settings": [
+    { "type": "header", "content": "Connection" },
+    {
+      "type": "text",
+      "id": "api_base_url",
+      "label": "API URL",
+      "info": "Your Vercel backend, for example https://dream-visualizer.vercel.app"
+    },
+    {
+      "type": "text",
+      "id": "turnstile_site_key",
+      "label": "Turnstile site key",
+      "info": "From Cloudflare Turnstile. Leave empty to turn off the security check while testing."
+    },
+    { "type": "header", "content": "Upload area" },
+    { "type": "checkbox", "id": "show_uploader", "label": "Show upload area", "default": true },
+    { "type": "text", "id": "anchor_id", "label": "Anchor ID", "default": "visualize", "info": "Menu links to #visualize scroll here." },
+    { "type": "text", "id": "number", "label": "Section number", "default": "04" },
+    { "type": "text", "id": "heading_start", "label": "Heading start", "default": "See What" },
+    { "type": "text", "id": "heading_highlight", "label": "Heading highlight", "default": "Your Space" },
+    { "type": "text", "id": "heading_end", "label": "Heading end", "default": "Could Become" },
+    {
+      "type": "richtext",
+      "id": "text",
+      "label": "Text",
+      "default": "<p>Imagine what your outdoor space could become with a $75,000 Outdoor Living Transformation. From more shade and comfort to a refreshed deck, gathering area, or outdoor kitchen, the possibilities can be shaped around your home, your lifestyle, and how you want to enjoy the space.</p>"
+    },
+    { "type": "url", "id": "privacy_url", "label": "Privacy policy link" },
+    { "type": "header", "content": "Gallery" },
+    { "type": "checkbox", "id": "show_gallery", "label": "Show gallery", "default": true },
+    { "type": "text", "id": "gallery_heading", "label": "Gallery heading", "default": "Designs from other entrants" },
+    {
+      "type": "text",
+      "id": "gallery_text",
+      "label": "Gallery text",
+      "default": "Drag across any photo to compare the yard before and after."
+    },
+    {
+      "type": "range",
+      "id": "gallery_page_size",
+      "label": "Designs per load",
+      "min": 3,
+      "max": 24,
+      "step": 3,
+      "default": 9
+    },
+    { "type": "header", "content": "Style" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#4A90CF" },
+    { "type": "color", "id": "ink", "label": "Text", "default": "#333333" },
+    { "type": "color", "id": "card", "label": "Upload area background", "default": "#EEEEE9" },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 160,
+      "step": 8,
+      "unit": "px",
+      "default": 96
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 160,
+      "step": 8,
+      "unit": "px",
+      "default": 96
+    }
+  ],
+  "presets": [{ "name": "Dream visualizer" }]
+}
+{% endschema %}

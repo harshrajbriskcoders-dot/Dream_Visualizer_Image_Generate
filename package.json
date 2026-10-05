@@ -1,0 +1,16 @@
+{
+  "name": "dream-visualizer-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend for the Dream Outdoor Living AI visualizer and gallery",
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "try:ai": "node --env-file=.env.local scripts/try-ai.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "cloudinary": "^2.11.0",
+    "mongodb": "^7.7.0"
+  }
+}
