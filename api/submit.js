@@ -18,6 +18,87 @@ function startOfUtcDay(d = new Date()) {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
+// ---------- Shopify copy: first name, last name, email and both image links ----------
+const SHOPIFY_TYPE = 'dream_design';
+const shopifyCache = globalThis.__dvShopify || (globalThis.__dvShopify = { token: null, expiresAt: 0 });
+
+async function getShopifyToken() {
+  if (process.env.SHOPIFY_ADMIN_TOKEN) return process.env.SHOPIFY_ADMIN_TOKEN;
+  if (shopifyCache.token && Date.now() < shopifyCache.expiresAt) return shopifyCache.token;
+
+  const res = await fetch(`https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/oauth/access_token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: process.env.SHOPIFY_CLIENT_ID || '',
+      client_secret: process.env.SHOPIFY_CLIENT_SECRET || '',
+    }),
+    signal: AbortSignal.timeout(5000),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || !body.access_token) throw new Error(`Shopify token failed (${res.status}) ${body.error || ''}`);
+
+  shopifyCache.token = body.access_token;
+  shopifyCache.expiresAt = Date.now() + ((body.expires_in || 86399) - 300) * 1000; // renew 5 min early
+  return shopifyCache.token;
+}
+
+async function saveToShopify(lead) {
+  const token = await getShopifyToken();
+  const res = await fetch(`https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2026-10/graphql.json`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token },
+    body: JSON.stringify({
+      query: `mutation SaveDesign($handle: MetaobjectHandleInput!, $metaobject: MetaobjectUpsertInput!) {
+        metaobjectUpsert(handle: $handle, metaobject: $metaobject) {
+          metaobject { id }
+          userErrors { field message }
+        }
+      }`,
+      variables: {
+        handle: { type: SHOPIFY_TYPE, handle: `design-${lead.id}` },
+        metaobject: {
+          fields: [
+            { key: 'first_name', value: lead.firstName },
+            { key: 'last_name', value: lead.lastName },
+            { key: 'email', value: lead.email },
+            { key: 'original_image', value: lead.originalUrl },
+            { key: 'generated_image', value: lead.generatedUrl },
+          ],
+        },
+      },
+    }),
+    signal: AbortSignal.timeout(5000),
+  });
+
+  if (res.status === 401) shopifyCache.token = null; // get a fresh token next time
+  const body = await res.json().catch(() => null);
+  if (!res.ok || !body) throw new Error(`Shopify API error (${res.status})`);
+  if (body.errors?.length) throw new Error(body.errors.map((e) => e.message).join('; '));
+
+  const { metaobject, userErrors } = body.data.metaobjectUpsert;
+  if (userErrors.length) throw new Error(userErrors.map((e) => e.message).join('; '));
+  return metaobject.id;
+}
+
+// Never throws: if Shopify fails, the visitor still gets their design.
+async function copyToShopify(col, _id, lead) {
+  if (!process.env.SHOPIFY_STORE_DOMAIN) {
+    console.warn('[submit] Shopify is not set up, so this design was not copied.');
+    return;
+  }
+  try {
+    const shopifyId = await saveToShopify(lead);
+    await col.updateOne({ _id }, { $set: { shopifyId, shopifySyncedAt: new Date() } });
+  } catch (err) {
+    console.error(`[submit] Shopify copy failed: ${err.message}`);
+    await col.updateOne({ _id }, { $set: { shopifyError: err.message.slice(0, 500) } }).catch(() => { });
+  }
+}
+
+// ---------- end Shopify copy ----------
+
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;
   if (req.method !== 'POST') return res.status(405).json({ error: 'Use POST.' });
@@ -104,7 +185,18 @@ export default async function handler(req, res) {
       }
     );
 
-    // 7. Send both images back to the page
+    // 7. Copy name, email and both image links to Shopify
+    await copyToShopify(col, submissionId, {
+      id,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: data.email,
+      originalUrl: original.url,
+      generatedUrl: result.url,
+    });
+
+    // 8. Send both images back to the page
+
     return res.status(200).json({
       id,
       status,
@@ -112,6 +204,7 @@ export default async function handler(req, res) {
       after: { url: imageUrl(result.publicId), width: result.width, height: result.height },
       download: downloadUrl(result.publicId),
     });
+
   } catch (err) {
     const e = err instanceof AppError ? err : new AppError(err?.message || String(err), 500);
     console.error(`[submit] ${e.code}: ${e.message}`);
@@ -119,8 +212,9 @@ export default async function handler(req, res) {
     if (col && submissionId) {
       await col
         .updateOne({ _id: submissionId }, { $set: { status: 'failed', error: e.message.slice(0, 500), failedAt: new Date() } })
-        .catch(() => {});
+        .catch(() => { });
     }
     return res.status(e.status).json({ error: e.publicMessage, code: e.code });
   }
 }
+1
